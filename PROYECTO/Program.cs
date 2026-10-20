@@ -42,7 +42,7 @@ namespace MesaDePartesDigital
         // El archivo de texto donde se va guardando todo para que no se borre
         private static string rutaArchivo = "solicitudes.txt";
 
-        // Guardamos aquí los IDs que ya se generaron en esta sesión para que nunca se repitan
+        // Guardamos aquí los IDs que ya se generaron en esta sesión, para que nunca se repitan entre sí
         private static readonly HashSet<string> idsEnMemoria = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         static void Main(string[] args)
@@ -106,34 +106,44 @@ namespace MesaDePartesDigital
             } while (opcion != 0);
         }
 
-        // Arma un ID único: fecha y hora en segundos más un sufijo aleatorio de 4 letras (GUID)
-        // y vuelve a intentarlo hasta que el código no esté repetido ni en el archivo ni en la sesión
+        // Armamos un ID único: le ponemos la fecha y hora (con segundos) y le agregamos un sufijo
+        // aleatorio de 4 letras sacado de un GUID, así nunca se repita aunque se registre todo en el mismo segundo
         private static string GenerarIdUnico()
         {
             string id;
 
             do
             {
+                // Sacamos las primeras 4 letras del GUID y las ponemos en mayúsculas
                 string sufijo = Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper();
+
+                // Juntamos la fecha y hora con el sufijo para armar el código (Ej. SOL-20261020181629-B9A0)
                 id = "SOL-" + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" + sufijo;
+
+                // Si el código ya se usó en esta sesión o ya está guardado en el archivo, generamos otro
             } while (idsEnMemoria.Contains(id) || ExisteId(id));
 
+            // Guardamos el código en la lista de esta sesión para que no se repita más adelante
             idsEnMemoria.Add(id);
 
             return id;
         }
 
-        // Revisa el archivo de texto para saber si un ID ya fue usado antes
+        // Revisamos el archivo de texto para saber si un ID ya fue usado antes
         private static bool ExisteId(string id)
         {
+            // Si el archivo todavía no existe, es porque no hay ningún ID guardado
             if (!File.Exists(rutaArchivo)) return false;
 
+            // Recorremos el archivo línea por línea
             foreach (var linea in File.ReadAllLines(rutaArchivo))
             {
+                // Convertimos la línea en objeto y comparamos su ID (sin importar mayúsculas o minúsculas)
                 var sol = Solicitud.DesdeLinea(linea);
                 if (sol != null && sol.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) return true;
             }
 
+            // Si llegamos hasta aquí es porque ese ID no está en el archivo
             return false;
         }
 
@@ -191,7 +201,8 @@ namespace MesaDePartesDigital
                 }
             } while (true);
 
-            // Creamos un ID automático con la fecha y hora (más un sufijo aleatorio para que nunca se repita), y el estado por defecto arranca en Pendiente
+            // Creamos un ID automático con la fecha y hora más un sufijo aleatorio (así nunca se repite),
+            // y el estado por defecto arranca en Pendiente
             string id = GenerarIdUnico();
             string fecha = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
             string estado = "Pendiente";
