@@ -42,6 +42,9 @@ namespace MesaDePartesDigital
         // El archivo de texto donde se va guardando todo para que no se borre
         private static string rutaArchivo = "solicitudes.txt";
 
+        // Guardamos aquí los IDs que ya se generaron en esta sesión para que nunca se repitan
+        private static readonly HashSet<string> idsEnMemoria = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         static void Main(string[] args)
         {
             int opcion = -1;
@@ -103,6 +106,37 @@ namespace MesaDePartesDigital
             } while (opcion != 0);
         }
 
+        // Arma un ID único: fecha y hora en segundos más un sufijo aleatorio de 4 letras (GUID)
+        // y vuelve a intentarlo hasta que el código no esté repetido ni en el archivo ni en la sesión
+        private static string GenerarIdUnico()
+        {
+            string id;
+
+            do
+            {
+                string sufijo = Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper();
+                id = "SOL-" + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" + sufijo;
+            } while (idsEnMemoria.Contains(id) || ExisteId(id));
+
+            idsEnMemoria.Add(id);
+
+            return id;
+        }
+
+        // Revisa el archivo de texto para saber si un ID ya fue usado antes
+        private static bool ExisteId(string id)
+        {
+            if (!File.Exists(rutaArchivo)) return false;
+
+            foreach (var linea in File.ReadAllLines(rutaArchivo))
+            {
+                var sol = Solicitud.DesdeLinea(linea);
+                if (sol != null && sol.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+
+            return false;
+        }
+
         // Aquí pedimos los datos al usuario con validaciones para que no queden vacíos o mal escritos
         private static void RegistrarSolicitud()
         {
@@ -157,8 +191,8 @@ namespace MesaDePartesDigital
                 }
             } while (true);
 
-            // Creamos un ID automático con la fecha y hora, y el estado por defecto arranca en Pendiente
-            string id = "SOL-" + DateTime.Now.ToString("yyyyMMddHHmmss");
+            // Creamos un ID automático con la fecha y hora (más un sufijo aleatorio para que nunca se repita), y el estado por defecto arranca en Pendiente
+            string id = GenerarIdUnico();
             string fecha = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
             string estado = "Pendiente";
 
